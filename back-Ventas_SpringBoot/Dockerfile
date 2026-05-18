@@ -19,8 +19,8 @@ RUN addgroup --system spring && adduser --system --ingroup spring spring
 USER spring
 
 COPY --from=builder /app/target/*.jar app.jar
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+
 
 EXPOSE 8080
-ENTRYPOINT ["/entrypoint.sh"]
+
+CMD ["java", "-jar", "app.jar"]
