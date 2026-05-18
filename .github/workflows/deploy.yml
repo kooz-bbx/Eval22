@@ -1,0 +1,71 @@
+name: CD deploy en AWS
+
+on:
+  push:
+    branches:
+      - deploy
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  PROJECT_NAME: eval2
+
+jobs:
+  deploy:
+    name: Build push y deploy en EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v3
+
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login en ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      #build y push de back-ventas
+      - name: Build y Push back-ventas
+        run: |
+          docker build --platform linux/amd64 \
+            -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-back-ventas:latest \
+            ./back-Ventas_SpringBoot
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-back-ventas:latest
+
+      #build y push de back-despachos
+      - name: Build y Push back-despachos
+        run: |
+          docker build --platform linux/amd64 \
+            -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-back-despachos:latest \
+            ./back-Despachos_SpringBoot
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-back-despachos:latest
+
+      #build y push del frontend
+      - name: Build y Push frontend
+        run: |
+          docker build --platform linux/amd64 \
+            -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-frontend:latest \
+            ./front_despacho
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-frontend:latest
+
+      #conectarse a la EC2 y levantar los contenedores
+      - name: Deploy en EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+              docker login --username AWS --password-stdin \
+              ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+            cd ~/Eval2
+            docker compose pull
+            docker compose up -d --remove-orphans

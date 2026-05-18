@@ -1,0 +1,22 @@
+# Variables de entorno con credenciales - NUNCA subir al repositorio
+.env
+
+# Archivos de Terraform (estado e infraestructura)
+*terraform*
+*.tfstate
+*.tfstate.backup
+.terraform/
+
+# Archivos compilados Java
+target/
+*.jar
+*.class
+
+# Archivos de Node
+node_modules/
+dist/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
